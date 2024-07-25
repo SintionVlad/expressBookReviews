@@ -1,21 +1,21 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt'); // Optional pentru criptarea parolelor
-let books = require("./booksdb.js");
+const bcrypt = require('bcrypt'); // Importă bcrypt pentru criptarea parolelor
+const books = require("./booksdb.js"); // Importă baza de date cu cărți
 const regd_users = express.Router();
 
 let users = []; // Array to store users with their credentials
 
-const isValid = (username) => { // returns boolean
-  // Check if the username is valid (e.g., exists in the users array)
+const isValid = (username) => {
+  // Verifică dacă utilizatorul există
   return users.some(user => user.username === username);
 }
 
-const authenticatedUser = (username, password) => { // returns boolean
-  // Check if username and password match the records
+const authenticatedUser = (username, password) => {
+  // Verifică dacă username-ul și parola se potrivesc
   const user = users.find(user => user.username === username);
   if (user) {
-    return bcrypt.compareSync(password, user.password); // Use bcrypt to compare hashed passwords
+    return bcrypt.compareSync(password, user.password); // Compară parolele criptate
   }
   return false;
 }
@@ -26,7 +26,7 @@ regd_users.post("/login", (req, res) => {
   
   if (username && password) {
     if (isValid(username) && authenticatedUser(username, password)) {
-      // Generate a JWT token for the authenticated user
+      // Generează un token JWT pentru utilizatorul autentificat
       const token = jwt.sign({ username }, 'your_jwt_secret', { expiresIn: '1h' });
       req.session.token = token;
       res.status(200).json({ message: "Login successful", token });
@@ -45,23 +45,26 @@ regd_users.put("/auth/review/:isbn", (req, res) => {
   const token = req.session.token;
 
   if (token) {
-    const decoded = jwt.verify(token, 'your_jwt_secret');
-    const username = decoded.username;
+    try {
+      const decoded = jwt.verify(token, 'your_jwt_secret');
+      const username = decoded.username;
 
-    if (books[isbn]) {
-      if (!books[isbn].reviews) {
-        books[isbn].reviews = [];
-      }
-      // Find and update or add a new review
-      const existingReviewIndex = books[isbn].reviews.findIndex(review => review.username === username);
-      if (existingReviewIndex > -1) {
-        books[isbn].reviews[existingReviewIndex].review = review;
+      if (books[isbn]) {
+        if (!books[isbn].reviews) {
+          books[isbn].reviews = [];
+        }
+        const existingReviewIndex = books[isbn].reviews.findIndex(r => r.username === username);
+        if (existingReviewIndex > -1) {
+          books[isbn].reviews[existingReviewIndex].review = review;
+        } else {
+          books[isbn].reviews.push({ username, review });
+        }
+        res.status(200).json({ message: "Review added/updated successfully" });
       } else {
-        books[isbn].reviews.push({ username, review });
+        res.status(404).json({ message: "Book not found" });
       }
-      res.status(200).json({ message: "Review added/updated successfully" });
-    } else {
-      res.status(404).json({ message: "Book not found" });
+    } catch (error) {
+      res.status(403).json({ message: "Invalid or expired token" });
     }
   } else {
     res.status(401).json({ message: "Unauthorized" });
@@ -74,19 +77,22 @@ regd_users.delete("/auth/review/:isbn", (req, res) => {
   const token = req.session.token;
 
   if (token) {
-    const decoded = jwt.verify(token, 'your_jwt_secret');
-    const username = decoded.username;
+    try {
+      const decoded = jwt.verify(token, 'your_jwt_secret');
+      const username = decoded.username;
 
-    if (books[isbn]) {
-      if (books[isbn].reviews) {
-        // Filter out reviews that don't belong to the user
-        books[isbn].reviews = books[isbn].reviews.filter(review => review.username !== username);
-        res.status(200).json({ message: "Review deleted successfully" });
+      if (books[isbn]) {
+        if (books[isbn].reviews) {
+          books[isbn].reviews = books[isbn].reviews.filter(review => review.username !== username);
+          res.status(200).json({ message: "Review deleted successfully" });
+        } else {
+          res.status(404).json({ message: "No reviews found for this book" });
+        }
       } else {
-        res.status(404).json({ message: "No reviews found for this book" });
+        res.status(404).json({ message: "Book not found" });
       }
-    } else {
-      res.status(404).json({ message: "Book not found" });
+    } catch (error) {
+      res.status(403).json({ message: "Invalid or expired token" });
     }
   } else {
     res.status(401).json({ message: "Unauthorized" });
