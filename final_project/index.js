@@ -5,21 +5,29 @@ const customer_routes = require('./router/auth_users.js').authenticated;
 const genl_routes = require('./router/general.js').general;
 const app = express();
 
+const JWT_SECRET = 'my_super_secret_key'; // Asigură-te că acesta este același în toate locurile
+
 app.use(express.json());
 
 app.use("/customer", session({
-  secret: "fingerprint_customer",
+  secret: JWT_SECRET,
   resave: true,
   saveUninitialized: true
 }));
 
-app.use("/customer/auth/*", function auth(req, res, next) {
-  // Autentificare utilizând JWT
-  const token = req.headers['authorization'];
+// Middleware pentru autentificare aplicat doar pentru rutele care necesită autentificare
+app.use("/customer/auth", function auth(req, res, next) {
+  // Endpoint-ul de login nu ar trebui să necesite autentificare
+  if (req.path === '/login' || req.path === '/register') {
+    return next();
+  }
+
+  const token = req.headers['authorization']?.split(' ')[1]; // Tokenul trebuie să fie în format "Bearer <token>"
   if (!token) {
     return res.status(403).send('Token is required');
   }
-  jwt.verify(token, 'secret_key', (err, decoded) => {
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) {
       return res.status(403).send('Invalid token');
     }
