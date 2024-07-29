@@ -38,6 +38,7 @@ regd_users.post("/register", (req, res) => {
   }
 });
 
+
 // Task 7: Login a user
 regd_users.post("/auth/login", (req, res) => {
   const { username, password } = req.body;
@@ -58,11 +59,12 @@ regd_users.post("/auth/login", (req, res) => {
   }
 });
 
+
 // Task 8: Add or modify a book review
 regd_users.put("/auth/review/:isbn", (req, res) => {
   const { isbn } = req.params;
-  const { review } = req.body; // review should be in the body for x-www-form-urlencoded
-  const token = req.headers["authorization"]?.split(' ')[1]; // Extract token from "Bearer <token>"
+  const { review } = req.body;
+  const token = req.headers["authorization"]?.split(' ')[1];
 
   if (token) {
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
@@ -89,10 +91,7 @@ regd_users.put("/auth/review/:isbn", (req, res) => {
 // Task 9: Delete a book review
 regd_users.delete("/auth/review/:isbn", (req, res) => {
   const { isbn } = req.params;
-  const token = req.headers["authorization"]?.split(' ')[1]; // Extract token from "Bearer <token>"
-
-  // Convert ISBN to number if it's a valid numeric string
-  const isbnNumber = Number(isbn);
+  const token = req.headers["authorization"]?.split(' ')[1];
 
   if (token) {
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
@@ -101,10 +100,9 @@ regd_users.delete("/auth/review/:isbn", (req, res) => {
       }
 
       const username = decoded.username;
-
-      if (books[isbnNumber]) {
-        if (books[isbnNumber].reviews && books[isbnNumber].reviews[username]) {
-          delete books[isbnNumber].reviews[username];
+      if (books[isbn]) {
+        if (books[isbn].reviews && books[isbn].reviews[username]) {
+          delete books[isbn].reviews[username];
           res.status(200).json({ message: "Review deleted successfully" });
         } else {
           res.status(404).json({ message: "No reviews found for this book by the user" });
