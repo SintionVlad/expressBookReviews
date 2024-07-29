@@ -62,7 +62,7 @@ regd_users.post("/auth/login", (req, res) => {
 regd_users.put("/auth/review/:isbn", (req, res) => {
   const { isbn } = req.params;
   const { review } = req.body; // review should be in the body for x-www-form-urlencoded
-  const token = req.headers["authorization"];
+  const token = req.headers["authorization"]?.split(' ')[1]; // Extract token from "Bearer <token>"
 
   if (token) {
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
@@ -73,14 +73,9 @@ regd_users.put("/auth/review/:isbn", (req, res) => {
       const username = decoded.username;
       if (books[isbn]) {
         if (!books[isbn].reviews) {
-          books[isbn].reviews = [];
+          books[isbn].reviews = {};
         }
-        const existingReviewIndex = books[isbn].reviews.findIndex(r => r.username === username);
-        if (existingReviewIndex > -1) {
-          books[isbn].reviews[existingReviewIndex].review = review;
-        } else {
-          books[isbn].reviews.push({ username, review });
-        }
+        books[isbn].reviews[username] = review;
         res.status(200).json({ message: "Review added/updated successfully" });
       } else {
         res.status(404).json({ message: "Book not found" });
@@ -91,13 +86,13 @@ regd_users.put("/auth/review/:isbn", (req, res) => {
   }
 });
 
-
-
-
 // Task 9: Delete a book review
 regd_users.delete("/auth/review/:isbn", (req, res) => {
   const { isbn } = req.params;
-  const token = req.headers["authorization"];
+  const token = req.headers["authorization"]?.split(' ')[1]; // Extract token from "Bearer <token>"
+
+  // Convert ISBN to number if it's a valid numeric string
+  const isbnNumber = Number(isbn);
 
   if (token) {
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
@@ -106,12 +101,13 @@ regd_users.delete("/auth/review/:isbn", (req, res) => {
       }
 
       const username = decoded.username;
-      if (books[isbn]) {
-        if (books[isbn].reviews) {
-          books[isbn].reviews = books[isbn].reviews.filter(r => r.username !== username);
+
+      if (books[isbnNumber]) {
+        if (books[isbnNumber].reviews && books[isbnNumber].reviews[username]) {
+          delete books[isbnNumber].reviews[username];
           res.status(200).json({ message: "Review deleted successfully" });
         } else {
-          res.status(404).json({ message: "No reviews found for this book" });
+          res.status(404).json({ message: "No reviews found for this book by the user" });
         }
       } else {
         res.status(404).json({ message: "Book not found" });
@@ -121,5 +117,6 @@ regd_users.delete("/auth/review/:isbn", (req, res) => {
     res.status(401).json({ message: "Unauthorized" });
   }
 });
+
 
 module.exports.authenticated = regd_users;
